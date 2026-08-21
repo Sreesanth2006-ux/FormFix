@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FormFix AI — Prototype</title>
+<style>
+  :root{
+    --ink:#1E2124;
+    --ink-soft:#4A4E54;
+    --chalk:#F5F3EE;
+    --card:#FFFFFF;
+    --line:#E4E1D8;
+    --orange:#FF5A1F;
+    --orange-dark:#B33E12;
+    --mint:#2FA875;
+    --mint-bg:#E4F5EC;
+    --steel:#5B6472;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    background:#EDEAE1;
+    display:flex;
+    justify-content:center;
+    padding:40px 16px;
+    color:var(--ink);
+  }
+  .stage{
+    width:100%;
+    max-width:1000px;
+    display:flex;
+    gap:32px;
+    align-items:flex-start;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  .phone{
+    width:360px;
+    background:var(--ink);
+    border-radius:44px;
+    padding:14px;
+    box-shadow:0 30px 60px rgba(0,0,0,0.25);
+  }
+  .screen{
+    background:var(--chalk);
+    border-radius:32px;
+    overflow:hidden;
+    height:720px;
+    position:relative;
+    display:flex;
+    flex-direction:column;
+  }
+  .notch{
+    position:absolute;
+    top:0; left:50%; transform:translateX(-50%);
+    width:120px; height:24px;
+    background:var(--ink);
+    border-bottom-left-radius:14px;
+    border-bottom-right-radius:14px;
+    z-index:20;
+  }
+
+  .view{ display:none; flex-direction:column; height:100%; }
+  .view.active{ display:flex; }
+
+  .topbar{
+    padding:44px 20px 12px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .wordmark{
+    font-weight:900;
+    font-size:20px;
+    letter-spacing:-0.5px;
+  }
+  .wordmark span{ color:var(--orange); }
+  .badge{
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.6px;
+    background:var(--ink);
+    color:var(--chalk);
+    padding:4px 9px;
+    border-radius:20px;
+  }
+
+  .content{
+    flex:1;
+    overflow-y:auto;
+    padding:4px 20px 20px;
+  }
+  .h1{
+    font-size:26px;
+    font-weight:900;
+    letter-spacing:-0.5px;
+    margin:6px 0 2px;
+  }
+  .sub{
+    font-size:14px;
+    color:var(--ink-soft);
+    margin:0 0 20px;
+    line-height:1.5;
+  }
+
+  .exercise-card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:16px;
+    margin-bottom:12px;
+    display:flex;
+    align-items:center;
+    gap:14px;
+    cursor:pointer;
+    transition:transform .12s ease, border-color .12s ease;
+  }
+  .exercise-card:active{ transform:scale(0.98); }
+  .exercise-card.selected{ border-color:var(--orange); background:#FFF4EE; }
+  .ex-icon{
+    width:48px;height:48px;border-radius:12px;
+    background:var(--ink);
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+  }
+  .ex-icon svg{ width:26px; height:26px; }
+  .ex-name{ font-weight:700; font-size:15px; margin:0 0 2px; }
+  .ex-meta{ font-size:12px; color:var(--ink-soft); margin:0; }
+  .risk{
+    margin-left:auto;
+    font-size:10px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    color:var(--orange-dark);
+    background:#FFE7DA;
+    padding:3px 8px;
+    border-radius:8px;
+    flex-shrink:0;
+  }
+
+  .primary-btn{
+    width:100%;
+    background:var(--orange);
+    color:#fff;
+    border:none;
+    border-radius:14px;
+    padding:16px;
+    font-size:15px;
+    font-weight:800;
+    letter-spacing:0.2px;
+    cursor:pointer;
+    margin-top:8px;
+  }
+  .primary-btn:disabled{ background:#D8D4C8; color:#9A968A; cursor:not-allowed; }
+  .primary-btn:active:not(:disabled){ transform:scale(0.98); }
+  .ghost-btn{
+    width:100%;
+    background:transparent;
+    color:var(--ink);
+    border:1.5px solid var(--line);
+    border-radius:14px;
+    padding:14px;
+    font-size:14px;
+    font-weight:700;
+    cursor:pointer;
+    margin-top:10px;
+  }
+
+  .cam-wrap{
+    position:relative;
+    margin:0 20px;
+    border-radius:20px;
+    overflow:hidden;
+    background:#000;
+    height:380px;
+    flex-shrink:0;
+  }
+  video{ width:100%; height:100%; object-fit:cover; display:block; transform:scaleX(-1); }
+  .cam-placeholder{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    color:#B9B6AC; font-size:13px; text-align:center; padding:20px;
+    background:#15171A;
+  }
+  #skeleton{ position:absolute; inset:0; width:100%; height:100%; }
+
+  .rep-pill{
+    position:absolute; top:12px; left:12px;
+    background:rgba(0,0,0,0.55);
+    backdrop-filter:blur(2px);
+    color:#fff;
+    padding:6px 12px;
+    border-radius:20px;
+    font-size:12px;
+    font-weight:700;
+    display:flex; align-items:center; gap:6px;
+  }
+  .dot{ width:7px; height:7px; border-radius:50%; background:var(--orange); }
+  .dot.live{ animation:pulse 1.1s infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:0.25;} }
+
+  .score-ring{
+    position:absolute; top:12px; right:12px;
+    width:52px; height:52px;
+  }
+
+  .feedback-bar{
+    margin:14px 20px 0;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:14px 16px;
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    min-height:64px;
+  }
+  .feedback-bar.good{ background:var(--mint-bg); border-color:#BFE7D3; }
+  .feedback-bar.warn{ background:#FFF1EA; border-color:#FBD3BB; }
+  .fb-icon{ font-size:18px; line-height:1; margin-top:1px; }
+  .fb-text{ font-size:13.5px; font-weight:600; line-height:1.4; }
+  .fb-sub{ font-size:11.5px; color:var(--ink-soft); margin-top:2px; font-weight:400; }
+
+  .stats-row{
+    display:flex;
+    gap:10px;
+    margin:14px 20px 0;
+  }
+  .stat{
+    flex:1;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:10px 12px;
+    text-align:center;
+  }
+  .stat-num{ font-size:22px; font-weight:900; }
+  .stat-label{ font-size:10px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.4px; font-weight:700; }
+
+  .session-controls{ padding:16px 20px 28px; margin-top:auto; }
+
+  .summary-hero{
+    text-align:center;
+    padding:12px 0 20px;
+  }
+  .ring-big{ width:150px; height:150px; margin:0 auto 10px; }
+  .summary-score{ font-size:38px; font-weight:900; }
+  .summary-label{ font-size:13px; color:var(--ink-soft); font-weight:600; }
+
+  .tip-row{
+    display:flex;
+    gap:10px;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:12px 14px;
+    margin-bottom:10px;
+    align-items:flex-start;
+  }
+  .tip-num{
+    width:22px;height:22px;border-radius:50%;
+    background:var(--ink); color:#fff;
+    font-size:11px; font-weight:800;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0; margin-top:1px;
+  }
+  .tip-text{ font-size:13px; line-height:1.45; }
+  .tip-text b{ font-weight:800; }
+
+  .disclaimer{
+    font-size:10.5px;
+    color:#9A968A;
+    text-align:center;
+    padding:0 20px 4px;
+    line-height:1.4;
+  }
+
+  .controls-outside{
+    width:320px;
+    padding-top:16px;
+  }
+  .controls-outside h3{ font-size:15px; margin:0 0 8px; font-weight:800; }
+  .controls-outside p{ font-size:13px; color:#5B6472; line-height:1.55; margin:0 0 16px; }
+  .ext-btn{
+    display:block; width:100%;
+    background:#fff; border:1px solid #DEDACE;
+    border-radius:12px; padding:12px 14px;
+    font-size:13px; font-weight:700; color:var(--ink);
+    cursor:pointer; margin-bottom:8px; text-align:left;
+  }
+  .ext-btn:hover{ border-color:var(--orange); }
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="phone">
+    <div class="screen">
+      <div class="notch"></div>
+
+      <div class="view active" id="view-home">
+        <div class="topbar">
+          <div class="wordmark">Form<span>Fix</span></div>
+          <div class="badge">Demo</div>
+        </div>
+        <div class="content">
+          <p class="h1">Pick an exercise</p>
+          <p class="sub">We'll watch your form through the camera and coach you live — starting with the moves most likely to cause injury when done alone.</p>
+
+          <div class="exercise-card selected" data-ex="squat" onclick="selectExercise('squat')">
+            <div class="ex-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#F5F3EE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4" r="2"></circle><path d="M12 6v5"></path><path d="M12 11l-4 7"></path><path d="M12 11l4 7"></path><path d="M8 18h8"></path></svg>
+            </div>
+            <div>
+              <p class="ex-name">Bodyweight squat</p>
+              <p class="ex-meta">Knee tracking · depth · back angle</p>
+            </div>
+            <div class="risk">High risk</div>
+          </div>
+
+          <div class="exercise-card" data-ex="pushup" onclick="selectExercise('pushup')">
+            <div class="ex-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#F5F3EE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20l2-8 4-3 4 3 2 8"></path><circle cx="12" cy="6" r="2"></circle></svg>
+            </div>
+            <div>
+              <p class="ex-name">Push-up</p>
+              <p class="ex-meta">Hip sag · elbow angle · range</p>
+            </div>
+            <div class="risk">High risk</div>
+          </div>
+
+          <div class="exercise-card" data-ex="lunge" onclick="selectExercise('lunge')">
+            <div class="ex-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#F5F3EE" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4" r="2"></circle><path d="M12 6l-2 6"></path><path d="M10 12l-3 6"></path><path d="M10 12l5 2"></path><path d="M15 14l1 5"></path></svg>
+            </div>
+            <div>
+              <p class="ex-name">Forward lunge</p>
+              <p class="ex-meta">Front knee · balance · torso lean</p>
+            </div>
+            <div class="risk">Medium</div>
+          </div>
+
+          <button class="primary-btn" onclick="goTo('view-camera')" style="margin-top:16px;">Start session</button>
+        </div>
+      </div>
+
+      <div class="view" id="view-camera">
+        <div class="topbar">
+          <div class="wordmark" style="font-size:16px;" id="cam-title">Bodyweight squat</div>
+          <div class="badge" style="background:var(--orange);">● Live</div>
+        </div>
+
+        <div class="cam-wrap">
+          <video id="webcam" autoplay playsinline muted></video>
+          <div class="cam-placeholder" id="cam-placeholder">
+            Tap "Start session" to enable your camera.<br>Skeleton overlay is simulated for this demo.
+          </div>
+          <canvas id="skeleton"></canvas>
+          <div class="rep-pill"><span class="dot live"></span> <span id="rep-count">0</span> reps</div>
+          <svg class="score-ring" viewBox="0 0 44 44">
+            <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="5"></circle>
+            <circle id="ring-fg" cx="22" cy="22" r="18" fill="none" stroke="#2FA875" stroke-width="5" stroke-linecap="round" stroke-dasharray="113" stroke-dashoffset="20" transform="rotate(-90 22 22)"></circle>
+            <text x="22" y="26" text-anchor="middle" font-size="12" font-weight="800" fill="#fff" id="ring-num">88</text>
+          </svg>
+        </div>
+
+        <div class="feedback-bar good" id="feedback-bar">
+          <div class="fb-icon" id="fb-icon">✓</div>
+          <div>
+            <div class="fb-text" id="fb-text">Nice depth — hips below knees</div>
+            <div class="fb-sub" id="fb-sub">Form score this rep: 92</div>
+          </div>
+        </div>
+
+        <div class="stats-row">
+          <div class="stat"><div class="stat-num" id="stat-time">0:00</div><div class="stat-label">Time</div></div>
+          <div class="stat"><div class="stat-num" id="stat-good">0</div><div class="stat-label">Clean reps</div></div>
+          <div class="stat"><div class="stat-num" id="stat-flag">0</div><div class="stat-label">Flagged</div></div>
+        </div>
+
+        <div class="session-controls">
+          <button class="primary-btn" style="background:var(--ink);" onclick="endSession()">End session</button>
+        </div>
+      </div>
+
+      <div class="view" id="view-summary">
+        <div class="topbar">
+          <div class="wordmark">Session <span>recap</span></div>
+          <div class="badge">Demo</div>
+        </div>
+        <div class="content">
+          <div class="summary-hero">
+            <svg class="ring-big" viewBox="0 0 44 44">
+              <circle cx="22" cy="22" r="18" fill="none" stroke="#E4E1D8" stroke-width="4"></circle>
+              <circle cx="22" cy="22" r="18" fill="none" stroke="#2FA875" stroke-width="4" stroke-linecap="round" stroke-dasharray="113" stroke-dashoffset="16" transform="rotate(-90 22 22)"></circle>
+              <text x="22" y="27" text-anchor="middle" font-size="13" font-weight="800" fill="#1E2124">86</text>
+            </svg>
+            <div class="summary-score">86 <span style="font-size:16px; color:var(--ink-soft); font-weight:700;">/ 100</span></div>
+            <div class="summary-label">Average form score</div>
+          </div>
+
+          <p class="h1" style="font-size:16px; margin-bottom:10px;">What to work on</p>
+          <div class="tip-row">
+            <div class="tip-num">1</div>
+            <div class="tip-text"><b>Knees caved inward</b> on 3 reps under fatigue. Focus on pushing knees out in line with your toes, especially in the last set.</div>
+          </div>
+          <div class="tip-row">
+            <div class="tip-num">2</div>
+            <div class="tip-text"><b>Depth was consistent</b> — hips reached below knee height on 11 of 14 reps. Keep it up.</div>
+          </div>
+          <div class="tip-row">
+            <div class="tip-num">3</div>
+            <div class="tip-text"><b>Back rounded slightly</b> at the bottom on 2 reps. Try bracing your core before descending.</div>
+          </div>
+
+          <button class="primary-btn" onclick="goTo('view-home')">Train again</button>
+          <button class="ghost-btn" onclick="goTo('view-home')">Back to exercises</button>
+        </div>
+        <p class="disclaimer">Simulated coaching feed for demo purposes. Full version uses on-device pose estimation.</p>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="controls-outside">
+    <h3>About this prototype</h3>
+    <p>This is a working click-through of the FormFix AI experience: exercise selection, a live camera view with a simulated skeleton overlay, real-time coaching feedback, and a post-session recap.</p>
+    <p>The camera feed is real (your browser's webcam). The pose analysis and coaching text are scripted for this demo — the production build replaces this with on-device pose estimation (e.g. MoveNet) feeding an LLM coaching layer.</p>
+    <button class="ext-btn" onclick="restartDemo()">↺ Restart demo</button>
+  </div>
+</div>
+
+<script>
+let stream = null;
+let timerInterval = null;
+let repInterval = null;
+let seconds = 0;
+let reps = 0;
+let goodReps = 0;
+let flaggedReps = 0;
+
+const exerciseFeedback = {
+  squat: [
+    {icon:'✓', text:'Nice depth — hips below knees', sub:'Form score this rep: 92', cls:'good'},
+    {icon:'✓', text:'Knees tracking over toes', sub:'Form score this rep: 89', cls:'good'},
+    {icon:'!', text:'Knees caving in slightly', sub:'Push knees out on the way up', cls:'warn'},
+    {icon:'✓', text:'Solid depth and control', sub:'Form score this rep: 94', cls:'good'},
+    {icon:'!', text:'Back rounding at the bottom', sub:'Brace your core before descending', cls:'warn'},
+    {icon:'✓', text:'Good tempo, steady knees', sub:'Form score this rep: 90', cls:'good'}
+  ],
+  pushup: [
+    {icon:'✓', text:'Straight line, hips level', sub:'Form score this rep: 91', cls:'good'},
+    {icon:'!', text:'Hips sagging slightly', sub:'Engage your core to flatten your back', cls:'warn'},
+    {icon:'✓', text:'Full range of motion', sub:'Form score this rep: 88', cls:'good'},
+    {icon:'!', text:'Elbows flaring wide', sub:'Keep elbows closer to a 45° angle', cls:'warn'},
+    {icon:'✓', text:'Controlled tempo down', sub:'Form score this rep: 93', cls:'good'}
+  ],
+  lunge: [
+    {icon:'✓', text:'Front knee tracking well', sub:'Form score this rep: 90', cls:'good'},
+    {icon:'!', text:'Front knee passing toes', sub:'Step out a little further next rep', cls:'warn'},
+    {icon:'✓', text:'Good torso posture', sub:'Form score this rep: 87', cls:'good'},
+    {icon:'!', text:'Slight balance wobble', sub:'Slow down the descent', cls:'warn'},
+    {icon:'✓', text:'Even weight distribution', sub:'Form score this rep: 92', cls:'good'}
+  ]
+};
+
+let currentExercise = 'squat';
+let fbIndex = 0;
+
+function selectExercise(ex){
+  currentExercise = ex;
+  document.querySelectorAll('.exercise-card').forEach(c => c.classList.remove('selected'));
+  document.querySelector('.exercise-card[data-ex="'+ex+'"]').classList.add('selected');
+}
+
+function goTo(id){
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(id === 'view-camera'){
+    const names = {squat:'Bodyweight squat', pushup:'Push-up', lunge:'Forward lunge'};
+    document.getElementById('cam-title').textContent = names[currentExercise];
+    startSession();
+  }
+}
+
+async function startSession(){
+  reps = 0; goodReps = 0; flaggedReps = 0; seconds = 0; fbIndex = 0;
+  document.getElementById('rep-count').textContent = '0';
+  document.getElementById('stat-time').textContent = '0:00';
+  document.getElementById('stat-good').textContent = '0';
+  document.getElementById('stat-flag').textContent = '0';
+
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+    document.getElementById('webcam').srcObject = stream;
+    document.getElementById('cam-placeholder').style.display = 'none';
+  }catch(e){
+    document.getElementById('cam-placeholder').style.display = 'flex';
+    document.getElementById('cam-placeholder').textContent = 'Camera unavailable in this preview — the demo still runs with simulated coaching feedback below.';
+  }
+
+  drawSkeletonLoop();
+
+  timerInterval = setInterval(() => {
+    seconds++;
+    const m = Math.floor(seconds/60);
+    const s = seconds%60;
+    document.getElementById('stat-time').textContent = m + ':' + (s<10?'0':'') + s;
+  }, 1000);
+
+  repInterval = setInterval(() => {
+    reps++;
+    document.getElementById('rep-count').textContent = reps;
+    const fb = exerciseFeedback[currentExercise][fbIndex % exerciseFeedback[currentExercise].length];
+    fbIndex++;
+    updateFeedback(fb);
+    if(fb.cls === 'good'){ goodReps++; document.getElementById('stat-good').textContent = goodReps; }
+    else { flaggedReps++; document.getElementById('stat-flag').textContent = flaggedReps; }
+  }, 2600);
+}
+
+function updateFeedback(fb){
+  const bar = document.getElementById('feedback-bar');
+  bar.className = 'feedback-bar ' + fb.cls;
+  document.getElementById('fb-icon').textContent = fb.icon;
+  document.getElementById('fb-text').textContent = fb.text;
+  document.getElementById('fb-sub').textContent = fb.sub;
+
+  const score = fb.cls === 'good' ? 88 + Math.floor(Math.random()*8) : 60 + Math.floor(Math.random()*15);
+  const circumference = 113;
+  const offset = circumference - (circumference * score/100);
+  document.getElementById('ring-fg').setAttribute('stroke-dashoffset', offset);
+  document.getElementById('ring-fg').setAttribute('stroke', fb.cls === 'good' ? '#2FA875' : '#FF5A1F');
+  document.getElementById('ring-num').textContent = score;
+}
+
+let skeletonRAF = null;
+function drawSkeletonLoop(){
+  const canvas = document.getElementById('skeleton');
+  const wrap = document.getElementById('cam-title').closest('.screen').querySelector('.cam-wrap');
+  const resize = () => { canvas.width = wrap.clientWidth; canvas.height = wrap.clientHeight; };
+  resize();
+  const ctx = canvas.getContext('2d');
+  let t = 0;
+
+  function frame(){
+    if(document.getElementById('view-camera').classList.contains('active')){
+      resize();
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0,0,w,h);
+      t += 0.045;
+      const bob = Math.sin(t) * 22;
+
+      const cx = w/2;
+      const headY = h*0.28 + bob*0.4;
+      const hipY = h*0.58 + bob;
+      const kneeY = h*0.78 + bob*0.6;
+      const footY = h*0.92;
+      const shoulderY = h*0.36 + bob*0.5;
+
+      const points = {
+        head:[cx, headY],
+        lShoulder:[cx-28, shoulderY], rShoulder:[cx+28, shoulderY],
+        lHip:[cx-20, hipY], rHip:[cx+20, hipY],
+        lKnee:[cx-24, kneeY], rKnee:[cx+24, kneeY],
+        lFoot:[cx-26, footY], rFoot:[cx+26, footY]
+      };
+      const bones = [
+        ['lShoulder','rShoulder'],['lShoulder','lHip'],['rShoulder','rHip'],
+        ['lHip','rHip'],['lHip','lKnee'],['rHip','rKnee'],
+        ['lKnee','lFoot'],['rKnee','rFoot']
+      ];
+
+      ctx.strokeStyle = 'rgba(47,168,117,0.85)';
+      ctx.lineWidth = 3;
+      bones.forEach(([a,b]) => {
+        ctx.beginPath();
+        ctx.moveTo(points[a][0], points[a][1]);
+        ctx.lineTo(points[b][0], points[b][1]);
+        ctx.stroke();
+      });
+      ctx.fillStyle = '#FF5A1F';
+      Object.values(points).forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], 4, 0, Math.PI*2);
+        ctx.fill();
+      });
+      ctx.beginPath();
+      ctx.arc(points.head[0], points.head[1], 12, 0, Math.PI*2);
+      ctx.strokeStyle = 'rgba(47,168,117,0.85)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+    skeletonRAF = requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+function endSession(){
+  clearInterval(timerInterval);
+  clearInterval(repInterval);
+  if(stream){ stream.getTracks().forEach(t => t.stop()); stream = null; }
+  document.getElementById('view-summary').querySelector('.summary-score').innerHTML =
+    (reps>0 ? Math.round(((goodReps*90)+(flaggedReps*65))/Math.max(reps,1)) : 86) + ' <span style="font-size:16px; color:var(--ink-soft); font-weight:700;">/ 100</span>';
+  goTo('view-summary');
+}
+
+function restartDemo(){
+  clearInterval(timerInterval);
+  clearInterval(repInterval);
+  if(stream){ stream.getTracks().forEach(t => t.stop()); stream = null; }
+  goTo('view-home');
+}
+</script>
+
+</body>
+</html>
