@@ -16,9 +16,13 @@
     --mint:#2FA875;
     --mint-bg:#E4F5EC;
     --steel:#5B6472;
+    --mono: "SF Mono", "Roboto Mono", ui-monospace, Menlo, monospace;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
   *{ box-sizing:border-box; }
+  .view{ transition: opacity .32s ease, transform .32s cubic-bezier(.22,1,.36,1); }
+  .view.leaving{ opacity:0; transform:translateY(6px); }
+  .view.active{ opacity:1; transform:translateY(0); }
   body{
     margin:0;
     background:#EDEAE1;
@@ -77,6 +81,11 @@
     letter-spacing:-0.5px;
   }
   .wordmark span{ color:var(--orange); }
+  .wordmark.intro{ animation:mark-in .6s cubic-bezier(.22,1,.36,1); }
+  @keyframes mark-in{
+    0%{ opacity:0; transform:translateY(-8px); letter-spacing:2px; }
+    100%{ opacity:1; transform:translateY(0); letter-spacing:-0.5px; }
+  }
   .badge{
     font-size:11px;
     font-weight:700;
@@ -188,6 +197,32 @@
   }
   #skeleton{ position:absolute; inset:0; width:100%; height:100%; }
 
+  .scan-corner{
+    position:absolute;
+    width:22px; height:22px;
+    border:2px solid var(--orange);
+    opacity:0.9;
+    z-index:5;
+  }
+  .scan-corner.tl{ top:10px; left:10px; border-right:none; border-bottom:none; border-top-left-radius:6px; }
+  .scan-corner.tr{ top:10px; right:10px; border-left:none; border-bottom:none; border-top-right-radius:6px; }
+  .scan-corner.bl{ bottom:10px; left:10px; border-right:none; border-top:none; border-bottom-left-radius:6px; }
+  .scan-corner.br{ bottom:10px; right:10px; border-left:none; border-top:none; border-bottom-right-radius:6px; }
+  .scanline{
+    position:absolute; left:0; right:0; height:2px;
+    background:linear-gradient(90deg, transparent, var(--orange), transparent);
+    top:0;
+    animation:sweep 3.2s ease-in-out infinite;
+    z-index:4;
+    opacity:0.85;
+  }
+  @keyframes sweep{
+    0%{ top:8%; opacity:0; }
+    10%{ opacity:0.85; }
+    50%{ top:92%; opacity:0.85; }
+    60%{ opacity:0; }
+    100%{ top:8%; opacity:0; }
+  }
   .rep-pill{
     position:absolute; top:12px; left:12px;
     background:rgba(0,0,0,0.55);
@@ -304,7 +339,7 @@
 
       <div class="view active" id="view-home">
         <div class="topbar">
-          <div class="wordmark">Form<span>Fix</span></div>
+          <div class="wordmark intro">Form<span>Fix</span></div>
           <div class="badge">Demo</div>
         </div>
         <div class="content">
@@ -360,10 +395,15 @@
             Tap "Start session" to enable your camera.<br>Skeleton overlay is simulated for this demo.
           </div>
           <canvas id="skeleton"></canvas>
+          <div class="scanline"></div>
+          <div class="scan-corner tl"></div>
+          <div class="scan-corner tr"></div>
+          <div class="scan-corner bl"></div>
+          <div class="scan-corner br"></div>
           <div class="rep-pill"><span class="dot live"></span> <span id="rep-count">0</span> reps</div>
           <svg class="score-ring" viewBox="0 0 44 44">
             <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="5"></circle>
-            <circle id="ring-fg" cx="22" cy="22" r="18" fill="none" stroke="#2FA875" stroke-width="5" stroke-linecap="round" stroke-dasharray="113" stroke-dashoffset="20" transform="rotate(-90 22 22)"></circle>
+            <circle id="ring-fg" cx="22" cy="22" r="18" fill="none" stroke="#2FA875" stroke-width="5" stroke-linecap="round" stroke-dasharray="113" stroke-dashoffset="20" transform="rotate(-90 22 22)" style="transition: stroke-dashoffset .5s ease, stroke .3s ease;"></circle>
             <text x="22" y="26" text-anchor="middle" font-size="12" font-weight="800" fill="#fff" id="ring-num">88</text>
           </svg>
         </div>
@@ -401,6 +441,14 @@
             </svg>
             <div class="summary-score">86 <span style="font-size:16px; color:var(--ink-soft); font-weight:700;">/ 100</span></div>
             <div class="summary-label">Average form score</div>
+          </div>
+
+          <div style="background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; margin-bottom:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <span style="font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; color:var(--ink-soft);">Score by rep</span>
+              <span style="font-size:11px; font-family:var(--mono); color:var(--ink-soft);" id="rep-total-label">0 reps</span>
+            </div>
+            <canvas id="sparkline" height="70" style="width:100%; height:70px; display:block;"></canvas>
           </div>
 
           <p class="h1" style="font-size:16px; margin-bottom:10px;">What to work on</p>
@@ -442,6 +490,7 @@ let seconds = 0;
 let reps = 0;
 let goodReps = 0;
 let flaggedReps = 0;
+let scoreHistory = [];
 
 const exerciseFeedback = {
   squat: [
@@ -478,17 +527,30 @@ function selectExercise(ex){
 }
 
 function goTo(id){
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
+  const current = document.querySelector('.view.active');
+  const next = document.getElementById(id);
+  if(current && current !== next){
+    current.classList.add('leaving');
+    current.classList.remove('active');
+    setTimeout(() => { current.classList.remove('leaving'); current.style.display = 'none'; }, 320);
+  }
+  next.style.display = 'flex';
+  next.classList.remove('leaving');
+  void next.offsetWidth;
+  next.classList.add('active');
+
   if(id === 'view-camera'){
     const names = {squat:'Bodyweight squat', pushup:'Push-up', lunge:'Forward lunge'};
     document.getElementById('cam-title').textContent = names[currentExercise];
     startSession();
   }
+  if(id === 'view-summary'){
+    drawSparkline();
+  }
 }
 
 async function startSession(){
-  reps = 0; goodReps = 0; flaggedReps = 0; seconds = 0; fbIndex = 0;
+  reps = 0; goodReps = 0; flaggedReps = 0; seconds = 0; fbIndex = 0; scoreHistory = [];
   document.getElementById('rep-count').textContent = '0';
   document.getElementById('stat-time').textContent = '0:00';
   document.getElementById('stat-good').textContent = '0';
@@ -514,7 +576,11 @@ async function startSession(){
 
   repInterval = setInterval(() => {
     reps++;
-    document.getElementById('rep-count').textContent = reps;
+    const repEl = document.getElementById('rep-count');
+    repEl.textContent = reps;
+    repEl.parentElement.style.transform = 'scale(1.15)';
+    setTimeout(() => { repEl.parentElement.style.transform = 'scale(1)'; }, 160);
+    repEl.parentElement.style.transition = 'transform .16s ease';
     const fb = exerciseFeedback[currentExercise][fbIndex % exerciseFeedback[currentExercise].length];
     fbIndex++;
     updateFeedback(fb);
@@ -531,6 +597,7 @@ function updateFeedback(fb){
   document.getElementById('fb-sub').textContent = fb.sub;
 
   const score = fb.cls === 'good' ? 88 + Math.floor(Math.random()*8) : 60 + Math.floor(Math.random()*15);
+  scoreHistory.push(score);
   const circumference = 113;
   const offset = circumference - (circumference * score/100);
   document.getElementById('ring-fg').setAttribute('stroke-dashoffset', offset);
@@ -598,6 +665,43 @@ function drawSkeletonLoop(){
     skeletonRAF = requestAnimationFrame(frame);
   }
   frame();
+}
+
+function drawSparkline(){
+  const canvas = document.getElementById('sparkline');
+  const label = document.getElementById('rep-total-label');
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth || 280;
+  const cssH = 70;
+  canvas.width = cssW * dpr;
+  canvas.height = cssH * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0,0,cssW,cssH);
+
+  const data = scoreHistory.length ? scoreHistory : [92,89,64,94,68,90];
+  label.textContent = data.length + ' reps';
+
+  const gap = 6;
+  const barW = Math.max(6, (cssW - gap*(data.length-1)) / data.length);
+  const maxH = cssH - 6;
+
+  data.forEach((score, i) => {
+    const h = (score/100) * maxH;
+    const x = i * (barW+gap);
+    const y = cssH - h;
+    ctx.fillStyle = score >= 80 ? '#2FA875' : '#FF5A1F';
+    ctx.beginPath();
+    const r = 3;
+    ctx.moveTo(x, cssH);
+    ctx.lineTo(x, y+r);
+    ctx.arcTo(x, y, x+r, y, r);
+    ctx.lineTo(x+barW-r, y);
+    ctx.arcTo(x+barW, y, x+barW, y+r, r);
+    ctx.lineTo(x+barW, cssH);
+    ctx.closePath();
+    ctx.fill();
+  });
 }
 
 function endSession(){
