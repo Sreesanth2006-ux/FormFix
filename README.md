@@ -1,4 +1,4 @@
-# 🏋️‍♂️ FormFix AI — Interactive Prototype
+#  FormFix AI — Interactive Prototype
 
 FormFix AI is a web-based real-time form coaching assistant designed to watch your form through your device's camera and provide live feedback to prevent injuries during workouts.
 
